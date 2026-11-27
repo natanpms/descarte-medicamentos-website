@@ -73,6 +73,16 @@
   --critical: #e36b6b;
 }
 
+/* Tailwind v4 não aplica mais `cursor: pointer` em button — repomos uma vez só,
+   em vez de espalhar a classe por cada botão. */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+}
+
 html {
   scroll-behavior: smooth;
 }

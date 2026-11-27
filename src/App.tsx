@@ -1,5 +1,17 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { motion, useScroll, useSpring, useTransform } from 'motion/react'
+import { AnimatePresence, motion, useScroll, useSpring, useTransform } from 'motion/react'
+import {
+  HiArrowRight,
+  HiArrowUpRight,
+  HiBars3,
+  HiCheck,
+  HiExclamationTriangle,
+  HiOutlineMoon,
+  HiOutlineSun,
+  HiXMark,
+} from 'react-icons/hi2'
+import { LuRecycle } from 'react-icons/lu'
+import { FaInstagram } from 'react-icons/fa6'
 import {
   ALCANCE,
   APURADO_EM,
@@ -19,7 +31,7 @@ import {
   STORIES,
   STORY_DESTAQUE,
 } from './data'
-import { AreaChart, BarList, Card, Counter, Reveal, StackedBar, StatTile, pct } from './components/charts'
+import { AreaChart, BarList, Card, Counter, GrowBar, Reveal, StackedBar, StatTile, pct } from './components/charts'
 
 const SECOES = [
   { id: 'alcance', label: 'Alcance' },
@@ -48,13 +60,144 @@ function ThemeToggle() {
       type="button"
       onClick={() => setDark((d) => !d)}
       aria-label={dark ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
-      className="grid size-9 place-items-center rounded-full border transition-colors"
+      className="grid size-10 place-items-center rounded-full border transition-colors"
       style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
     >
-      <motion.span key={String(dark)} initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }}>
-        {dark ? '☀' : '☾'}
+      <motion.span
+        key={String(dark)}
+        initial={{ rotate: -90, opacity: 0 }}
+        animate={{ rotate: 0, opacity: 1 }}
+        className="grid place-items-center"
+      >
+        {dark ? <HiOutlineSun size={18} /> : <HiOutlineMoon size={18} />}
       </motion.span>
     </button>
+  )
+}
+
+/** Hambúrguer ⇄ X. Os dois ícones trocam com rotação, um de cada vez. */
+function MenuButton({ aberto, onClick }: { aberto: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={aberto ? 'Fechar menu' : 'Abrir menu'}
+      aria-expanded={aberto}
+      className="relative grid size-10 place-items-center rounded-full border md:hidden"
+      style={{ borderColor: 'var(--border)', background: 'var(--surface-1)' }}
+    >
+      <AnimatePresence initial={false} mode="wait">
+        <motion.span
+          key={aberto ? 'x' : 'menu'}
+          initial={{ rotate: aberto ? -90 : 90, opacity: 0, scale: 0.6 }}
+          animate={{ rotate: 0, opacity: 1, scale: 1 }}
+          exit={{ rotate: aberto ? 90 : -90, opacity: 0, scale: 0.6 }}
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="grid place-items-center"
+        >
+          {aberto ? <HiXMark size={21} /> : <HiBars3 size={21} />}
+        </motion.span>
+      </AnimatePresence>
+    </button>
+  )
+}
+
+function MobileNav({ aberto, fechar }: { aberto: boolean; fechar: () => void }) {
+  // trava o scroll do fundo enquanto o painel está aberto
+  useEffect(() => {
+    if (!aberto) return
+    const anterior = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && fechar()
+    addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = anterior
+      removeEventListener('keydown', onKey)
+    }
+  }, [aberto, fechar])
+
+  // fecha primeiro, rola depois: com o scroll travado o salto por hash não acontece
+  const irPara = (id: string) => {
+    fechar()
+    setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+      history.replaceState(null, '', `#${id}`)
+    }, 260)
+  }
+
+  return (
+    <AnimatePresence>
+      {aberto && (
+        <motion.div
+          key="painel"
+          className="fixed inset-0 z-[60] flex flex-col md:hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          style={{ background: 'var(--surface-2)' }}
+        >
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 -right-20 size-80 rounded-full blur-3xl"
+            style={{ background: 'var(--series-1)', opacity: 0.14 }}
+            animate={{ scale: [1, 1.15, 1] }}
+            transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+          />
+
+          <nav className="relative mt-24 flex-1 px-5">
+            <ul>
+              {SECOES.map((s, i) => (
+                <motion.li
+                  key={s.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 8, transition: { duration: 0.12 } }}
+                  transition={{ duration: 0.45, delay: 0.06 + i * 0.055, ease: [0.16, 1, 0.3, 1] }}
+                  className="border-b"
+                  style={{ borderColor: 'var(--grid)' }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => irPara(s.id)}
+                    className="flex w-full items-center gap-4 py-5 text-left active:opacity-60"
+                  >
+                    <span className="text-xs tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                      0{i + 1}
+                    </span>
+                    <span className="text-2xl font-semibold tracking-tight">{s.label}</span>
+                    <HiArrowRight size={18} className="ml-auto" style={{ color: 'var(--text-muted)' }} />
+                  </button>
+                </motion.li>
+              ))}
+            </ul>
+          </nav>
+
+          <motion.div
+            className="relative px-5 pb-10 text-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.12 } }}
+            transition={{ delay: 0.36, duration: 0.4 }}
+            style={{ color: 'var(--text-secondary)' }}
+          >
+            <a
+              href={INSTAGRAM_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border px-4 py-2 font-medium active:opacity-60"
+              style={{ borderColor: 'var(--border)' }}
+            >
+              <FaInstagram size={16} /> @descartesaudavel
+              <HiArrowUpRight size={14} style={{ color: 'var(--text-muted)' }} />
+            </a>
+            <p className="mt-5 text-xs" style={{ color: 'var(--text-muted)' }}>
+              Projeto Comunitário de Extensão Universitária · UNIVALI · Itajaí/SC
+            </p>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
@@ -62,6 +205,7 @@ function Header() {
   const { scrollYProgress } = useScroll()
   const scaleX = useSpring(scrollYProgress, { stiffness: 120, damping: 30, restDelta: 0.001 })
   const [solid, setSolid] = useState(false)
+  const [menu, setMenu] = useState(false)
 
   useEffect(() => {
     const onScroll = () => setSolid(window.scrollY > 24)
@@ -71,19 +215,20 @@ function Header() {
   }, [])
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50">
+    <header className="fixed inset-x-0 top-0 z-[70]">
+      {/* z-20: a barra fica acima do painel para o X continuar clicável */}
       <div
-        className="transition-colors duration-300"
+        className="relative z-20 transition-colors duration-300"
         style={{
-          background: solid ? 'color-mix(in srgb, var(--surface-2) 82%, transparent)' : 'transparent',
-          backdropFilter: solid ? 'blur(12px)' : 'none',
-          borderBottom: `1px solid ${solid ? 'var(--border)' : 'transparent'}`,
+          background: solid && !menu ? 'color-mix(in srgb, var(--surface-2) 82%, transparent)' : 'transparent',
+          backdropFilter: solid && !menu ? 'blur(12px)' : 'none',
+          borderBottom: `1px solid ${solid && !menu ? 'var(--border)' : 'transparent'}`,
         }}
       >
         <nav className="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3.5">
           <a href="#topo" className="flex items-center gap-2 font-semibold tracking-tight">
-            <span className="grid size-7 place-items-center rounded-lg text-sm" style={{ background: 'var(--series-1)', color: '#fff' }}>
-              ♻
+            <span className="grid size-7 place-items-center rounded-lg" style={{ background: 'var(--series-1)', color: '#fff' }}>
+              <LuRecycle size={15} />
             </span>
             Descarte Consciente
           </a>
@@ -96,12 +241,17 @@ function Header() {
               </li>
             ))}
           </ul>
-          <div className="ml-auto md:ml-0">
+          <div className="ml-auto flex items-center gap-2 md:ml-0">
             <ThemeToggle />
+            <MenuButton aberto={menu} onClick={() => setMenu((m) => !m)} />
           </div>
         </nav>
       </div>
-      <motion.div className="h-[2px] origin-left" style={{ scaleX, background: 'var(--series-1)' }} />
+      <motion.div
+        className="h-[2px] origin-left"
+        style={{ scaleX, background: 'var(--series-1)', opacity: menu ? 0 : 1 }}
+      />
+      <MobileNav aberto={menu} fechar={() => setMenu(false)} />
     </header>
   )
 }
@@ -237,10 +387,10 @@ function Hero() {
             href={INSTAGRAM_URL}
             target="_blank"
             rel="noreferrer"
-            className="rounded-full border px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-70"
+            className="inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition-opacity hover:opacity-70"
             style={{ borderColor: 'var(--border)' }}
           >
-            @descartesaudavel
+            <FaInstagram size={16} /> @descartesaudavel
           </a>
         </motion.div>
 
@@ -366,15 +516,8 @@ export default function App() {
                   <Counter to={metaPct} />%
                 </p>
               </div>
-              <div className="mt-6 h-2.5 w-full rounded-full" style={{ background: 'var(--grid)' }}>
-                <motion.div
-                  className="h-full rounded-full origin-left"
-                  style={{ background: 'var(--series-1)' }}
-                  initial={{ scaleX: 0 }}
-                  whileInView={{ scaleX: 1 }}
-                  viewport={{ once: true, margin: '-60px' }}
-                  transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-                />
+              <div className="mt-6">
+                <GrowBar fraction={1} />
               </div>
               <p className="mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                 {ALCANCE.visualizacoes.toLocaleString('pt-BR')} visualizações contra uma meta de {ALCANCE.metaPessoas}{' '}
@@ -481,10 +624,10 @@ export default function App() {
                   <div className="flex items-start gap-3">
                     <span
                       aria-hidden
-                      className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold text-white"
+                      className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-white"
                       style={{ background: m.situacao === 'atingida' ? 'var(--series-1)' : 'var(--series-3)' }}
                     >
-                      {m.situacao === 'atingida' ? '✓' : '!'}
+                      {m.situacao === 'atingida' ? <HiCheck size={14} /> : <HiExclamationTriangle size={13} />}
                     </span>
                     <div>
                       <h3 className="font-semibold leading-snug tracking-tight">{m.titulo}</h3>
@@ -562,10 +705,10 @@ export default function App() {
                 href={MAPA_URL}
                 target="_blank"
                 rel="noreferrer"
-                className="mt-5 inline-block rounded-full px-5 py-2.5 text-sm font-medium text-white transition-transform hover:scale-[1.03]"
+                className="mt-5 inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium text-white transition-transform hover:scale-[1.03]"
                 style={{ background: 'var(--series-1)' }}
               >
-                Abrir o mapa de pontos de coleta →
+                Abrir o mapa de pontos de coleta <HiArrowUpRight size={15} />
               </a>
             </Card>
           </Reveal>

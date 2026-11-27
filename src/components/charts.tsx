@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { animate, motion, useInView, useReducedMotion } from 'motion/react'
+import { HiCheck, HiChevronRight, HiMinus, HiXMark } from 'react-icons/hi2'
 import type { Pergunta, Slice } from '../data'
 
 const nf = new Intl.NumberFormat('pt-BR')
@@ -9,15 +10,72 @@ export const pct = (v: number, total: number) => Math.round((v / total) * 100)
 const slotColor = (s?: 1 | 2 | 3) => `var(--series-${s ?? 1})`
 
 const TONE = {
-  correto: { color: 'var(--series-1)', icon: '✓', hint: 'forma correta' },
-  incorreto: { color: 'var(--critical)', icon: '✕', hint: 'forma incorreta' },
-  neutro: { color: 'var(--text-muted)', icon: '•', hint: 'adia o descarte' },
+  correto: { color: 'var(--series-1)', Icon: HiCheck, hint: 'forma correta' },
+  incorreto: { color: 'var(--critical)', Icon: HiXMark, hint: 'forma incorreta' },
+  neutro: { color: 'var(--text-muted)', Icon: HiMinus, hint: 'adia o descarte' },
 } as const
 
 export const sliceColor = (s: Slice) => (s.tone ? TONE[s.tone].color : slotColor(s.slot))
 
 /** Tinta do rótulo impresso dentro do segmento: o amarelo é claro demais para texto branco. */
 const labelInk = (s: Slice) => (s.slot === 3 || s.tone === 'neutro' ? '#0b0f0c' : '#ffffff')
+
+/** No touch não existe "sair de cima": lá o realce vira toque que alterna. */
+export function useHoverCapable() {
+  const [can, setCan] = useState(() => matchMedia('(hover: hover)').matches)
+  useEffect(() => {
+    const mq = matchMedia('(hover: hover)')
+    const on = () => setCan(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return can
+}
+
+/** Realce só onde existe ponteiro: no toque não há "sair de cima", e o realce
+ *  ficaria preso escurecendo todas as outras barras. */
+function highlightProps(canHover: boolean, label: string, set: (v: string | null) => void) {
+  if (!canHover) return {}
+  return {
+    onMouseEnter: () => set(label),
+    onMouseLeave: () => set(null),
+    onFocus: () => set(label),
+    onBlur: () => set(null),
+  }
+}
+
+/** Gatilho de entrada na tela. Precisa ser ancorado num elemento de tamanho real:
+ *  um elemento com `scaleX: 0` ou `width: 0` tem caixa vazia e o IntersectionObserver
+ *  pode nunca marcá-lo como visível — foi assim que as barras ficaram zeradas. */
+export function useEntrou<T extends Element>() {
+  const ref = useRef<T>(null)
+  const inView = useInView(ref, { once: true, margin: '-40px' })
+  return [ref, inView] as const
+}
+
+/** Barra de progresso que cresce ao entrar na tela. */
+export function GrowBar({
+  fraction,
+  color = 'var(--series-1)',
+  delay = 0,
+}: {
+  fraction: number
+  color?: string
+  delay?: number
+}) {
+  const [ref, inView] = useEntrou<HTMLDivElement>()
+  return (
+    <div ref={ref} className="h-2.5 w-full rounded-full" style={{ background: 'var(--grid)' }}>
+      <motion.div
+        className="h-full rounded-full origin-left"
+        style={{ background: color }}
+        initial={{ scaleX: 0 }}
+        animate={{ scaleX: inView ? fraction : 0 }}
+        transition={{ duration: 0.9, delay, ease: [0.16, 1, 0.3, 1] }}
+      />
+    </div>
+  )
+}
 
 /* ------------------------------------------------------------- primitivos */
 
@@ -74,9 +132,11 @@ export function Reveal({
 }
 
 export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+  // no touch, `whileHover` dispara no toque e o card fica preso levantado
+  const canHover = useHoverCapable()
   return (
     <motion.div
-      whileHover={{ y: -4 }}
+      whileHover={canHover ? { y: -4 } : undefined}
       transition={{ type: 'spring', stiffness: 300, damping: 24 }}
       className={`rounded-2xl border p-6 sm:p-7 ${className}`}
       style={{ background: 'var(--surface-1)', borderColor: 'var(--border)' }}
@@ -91,10 +151,10 @@ function TableView({ slices, n, unidade = 'respostas' }: { slices: Slice[]; n: n
   return (
     <details className="mt-5 group">
       <summary
-        className="cursor-pointer text-xs tracking-wide uppercase list-none select-none transition-colors hover:opacity-70"
+        className="flex items-center gap-1 text-xs tracking-wide uppercase list-none select-none transition-colors hover:opacity-70"
         style={{ color: 'var(--text-muted)' }}
       >
-        <span className="inline-block transition-transform group-open:rotate-90">›</span> Ver tabela
+        <HiChevronRight size={14} className="transition-transform group-open:rotate-90" /> Ver tabela
       </summary>
       <table className="mt-3 w-full text-sm tabular-nums">
         <thead>
@@ -172,42 +232,44 @@ export function BarList({
 }) {
   const max = Math.max(...items.map((i) => i.value))
   const [hover, setHover] = useState<string | null>(null)
+  const canHover = useHoverCapable()
+  const [listRef, inView] = useEntrou<HTMLUListElement>()
 
   return (
     <div>
       {showTone && (
         <div className="mb-5 flex flex-wrap gap-x-5 gap-y-2 text-xs" style={{ color: 'var(--text-secondary)' }}>
-          {(['correto', 'incorreto', 'neutro'] as const).map((t) => (
-            <span key={t} className="inline-flex items-center gap-1.5">
-              <span className="inline-block size-2.5 rounded-full" style={{ background: TONE[t].color }} />
-              {TONE[t].hint}
-            </span>
-          ))}
+          {(['correto', 'incorreto', 'neutro'] as const).map((t) => {
+            const { Icon, color, hint } = TONE[t]
+            return (
+              <span key={t} className="inline-flex items-center gap-1.5">
+                <Icon size={14} style={{ color }} aria-hidden />
+                {hint}
+              </span>
+            )
+          })}
         </div>
       )}
 
-      <ul className="space-y-4">
+      <ul ref={listRef} className="space-y-4">
         {items.map((item, i) => {
           const color = sliceColor(item)
           const dim = hover !== null && hover !== item.label
           return (
             <li
               key={item.label}
-              className="group cursor-default py-1 transition-opacity duration-200"
+              className="group py-1 transition-opacity duration-200"
               style={{ opacity: dim ? 0.45 : 1 }}
-              onMouseEnter={() => setHover(item.label)}
-              onMouseLeave={() => setHover(null)}
-              onFocus={() => setHover(item.label)}
-              onBlur={() => setHover(null)}
+              {...highlightProps(canHover, item.label, setHover)}
               tabIndex={0}
             >
               <div className="mb-1.5 flex items-baseline justify-between gap-3">
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  {item.tone && (
-                    <span aria-hidden className="mr-1.5 font-semibold" style={{ color }}>
-                      {TONE[item.tone].icon}
-                    </span>
-                  )}
+                <span className="flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {item.tone &&
+                    (() => {
+                      const { Icon, hint } = TONE[item.tone]
+                      return <Icon size={15} style={{ color }} aria-label={hint} role="img" />
+                    })()}
                   {item.label}
                 </span>
                 <span className="shrink-0 text-sm tabular-nums font-medium">
@@ -222,8 +284,7 @@ export function BarList({
                   className="h-full rounded-full origin-left"
                   style={{ background: color }}
                   initial={{ scaleX: 0 }}
-                  whileInView={{ scaleX: item.value / max }}
-                  viewport={{ once: true, margin: '-60px' }}
+                  animate={{ scaleX: inView ? item.value / max : 0 }}
                   transition={{ duration: 0.9, delay: 0.06 * i, ease: [0.16, 1, 0.3, 1] }}
                 />
               </div>
@@ -244,10 +305,13 @@ export function BarList({
 export function StackedBar({ pergunta }: { pergunta: Pergunta }) {
   const { slices, n } = pergunta
   const [hover, setHover] = useState<string | null>(null)
+  const canHover = useHoverCapable()
+  const [barRef, inView] = useEntrou<HTMLDivElement>()
 
   return (
     <div>
       <div
+        ref={barRef}
         className="flex h-9 w-full overflow-hidden rounded-lg"
         role="img"
         aria-label={`${pergunta.titulo} — ${slices.map((s) => `${s.label}: ${s.value}`).join(', ')}`}
@@ -267,15 +331,14 @@ export function StackedBar({ pergunta }: { pergunta: Pergunta }) {
                 transition: 'opacity .2s',
               }}
               initial={{ width: 0 }}
-              whileInView={{ width: `${share}%` }}
-              viewport={{ once: true, margin: '-60px' }}
+              animate={{ width: inView ? `${share}%` : 0 }}
               transition={{ duration: 0.85, delay: 0.08 * i, ease: [0.16, 1, 0.3, 1] }}
-              onMouseEnter={() => setHover(s.label)}
-              onMouseLeave={() => setHover(null)}
+              {...highlightProps(canHover, s.label, setHover)}
               title={`${s.label}: ${s.value} de ${n} (${share}%)`}
             >
-              {/* só rotula dentro quando cabe; os demais ficam na legenda e na tabela */}
-              {share >= 14 && (
+              {/* só rotula dentro quando cabe — no card estreito do celular um segmento
+                  abaixo de ~16% corta o rótulo; os demais ficam na legenda e na tabela */}
+              {share >= 16 && (
                 <span
                   className="px-2 text-xs font-semibold tabular-nums whitespace-nowrap"
                   style={{ color: labelInk(s) }}
@@ -295,10 +358,7 @@ export function StackedBar({ pergunta }: { pergunta: Pergunta }) {
             type="button"
             className="inline-flex items-center gap-2 text-sm transition-opacity"
             style={{ opacity: hover !== null && hover !== s.label ? 0.45 : 1, color: 'var(--text-secondary)' }}
-            onMouseEnter={() => setHover(s.label)}
-            onMouseLeave={() => setHover(null)}
-            onFocus={() => setHover(s.label)}
-            onBlur={() => setHover(null)}
+            {...highlightProps(canHover, s.label, setHover)}
           >
             <span className="inline-block size-2.5 rounded-full" style={{ background: sliceColor(s) }} />
             {s.label}
@@ -328,6 +388,7 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
   const max = Math.ceil(Math.max(...dados.map((d) => d.value)) / 10) * 10
   const [active, setActive] = useState<number | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const inView = useInView(wrapRef, { once: true, margin: '-40px' })
 
   const x = (i: number) => PAD.left + (i / (dados.length - 1)) * plotW
   const y = (v: number) => PAD.top + plotH - (v / max) * plotH
@@ -336,10 +397,11 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
   const area = `${linha} L${x(dados.length - 1).toFixed(1)},${PAD.top + plotH} L${PAD.left},${PAD.top + plotH} Z`
   const ticks = [0, max / 2, max]
 
-  const onMove = (e: React.MouseEvent) => {
+  /** Mesma conta para mouse e dedo: do clientX ao índice do ponto mais próximo. */
+  const aponta = (clientX: number) => {
     const rect = wrapRef.current?.getBoundingClientRect()
     if (!rect) return
-    const px = ((e.clientX - rect.left) / rect.width) * W
+    const px = ((clientX - rect.left) / rect.width) * W
     const i = Math.round(((px - PAD.left) / plotW) * (dados.length - 1))
     setActive(Math.min(dados.length - 1, Math.max(0, i)))
   }
@@ -348,7 +410,15 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
 
   return (
     <div>
-      <div ref={wrapRef} className="relative" onMouseMove={onMove} onMouseLeave={() => setActive(null)}>
+      <div
+        ref={wrapRef}
+        className="relative touch-pan-y"
+        onMouseMove={(e) => aponta(e.clientX)}
+        onMouseLeave={() => setActive(null)}
+        onTouchStart={(e) => aponta(e.touches[0].clientX)}
+        onTouchMove={(e) => aponta(e.touches[0].clientX)}
+        onTouchEnd={() => setActive(null)}
+      >
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Respostas do formulário por dia">
           <defs>
             <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
@@ -378,8 +448,7 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
             d={area}
             fill="url(#areaFill)"
             initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true, margin: '-60px' }}
+            animate={{ opacity: inView ? 1 : 0 }}
             transition={{ duration: 0.8, delay: 0.7 }}
           />
           <motion.path
@@ -390,8 +459,7 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
             strokeLinecap="round"
             strokeLinejoin="round"
             initial={{ pathLength: 0 }}
-            whileInView={{ pathLength: 1 }}
-            viewport={{ once: true, margin: '-60px' }}
+            animate={{ pathLength: inView ? 1 : 0 }}
             transition={{ duration: 1.3, ease: [0.16, 1, 0.3, 1] }}
           />
 
@@ -401,8 +469,7 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
             return (
               <motion.g
                 initial={{ opacity: 0, y: 6 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
+                animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
                 transition={{ delay: 1.2, duration: 0.5 }}
               >
                 <circle cx={x(i)} cy={y(dados[i].value)} r="4.5" fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth="2" />
