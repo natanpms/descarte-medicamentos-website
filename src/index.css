@@ -1,0 +1,90 @@
+@import 'tailwindcss';
+
+/* Tailwind v4: `dark:` follows the OS, but a [data-theme] stamp on <html> wins either way. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme='light']) *, :root:not([data-theme='light'])) {
+      @slot;
+    }
+  }
+  &:where(:root[data-theme='dark'] *, :root[data-theme='dark']) {
+    @slot;
+  }
+}
+
+@theme {
+  --font-sans: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* Palette validated with the dataviz validator (all-pairs, both modes):
+   light  surface #fbfcfb — all checks pass
+   dark   surface #121412 — pass, CVD warn band 6.9 on green/yellow, which is why
+   every chart ships direct value labels + 2px gaps (the required secondary encoding). */
+:root {
+  color-scheme: light;
+  --surface-1: #fbfcfb; /* chart surface */
+  --surface-2: #f4f6f3; /* page plane */
+  --text-primary: #0b0f0c;
+  --text-secondary: #4e5751;
+  --text-muted: #868d88;
+  --grid: #e3e7e3;
+  --axis: #c4ccc6;
+  --border: rgb(11 15 12 / 0.1);
+  --series-1: #008300;
+  --series-2: #2a78d6;
+  --series-3: #eda100;
+  --series-4: #e87ba4;
+  --critical: #d03b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface-1: #121412;
+    --surface-2: #0a0b0a;
+    --text-primary: #f4f6f3;
+    --text-secondary: #b8c0ba;
+    --text-muted: #868d88;
+    --grid: #232623;
+    --axis: #333733;
+    --border: rgb(244 246 243 / 0.1);
+    --series-1: #008300;
+    --series-2: #3987e5;
+    --series-3: #c98500;
+    --series-4: #d55181;
+    --critical: #e36b6b;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface-1: #121412;
+  --surface-2: #0a0b0a;
+  --text-primary: #f4f6f3;
+  --text-secondary: #b8c0ba;
+  --text-muted: #868d88;
+  --grid: #232623;
+  --axis: #333733;
+  --border: rgb(244 246 243 / 0.1);
+  --series-1: #008300;
+  --series-2: #3987e5;
+  --series-3: #c98500;
+  --series-4: #d55181;
+  --critical: #e36b6b;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--surface-2);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
