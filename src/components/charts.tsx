@@ -5,11 +5,12 @@ import type { Pergunta, Slice } from '../data'
 
 const nf = new Intl.NumberFormat('pt-BR')
 
-/** Margem do gatilho de scroll, no formato `top/bottom left/right`.
- *  Os 0px laterais não são decoração: uma margem negativa encolhe o viewport nos
- *  quatro lados, e no celular (padding de 20px) isso jogava todo elemento alinhado
- *  à esquerda para fora da faixa — nada animava. */
-export const VIEW_MARGIN = '-60px 0px'
+/** Dispara assim que o elemento encosta no viewport. Sem margem negativa, de propósito:
+ *  ela encolhe a faixa nos quatro lados e no celular causava dois bugs reais —
+ *  (1) um contador que começa em "0" tem ~16px de largura e ficava inteiro dentro
+ *  dos 60px cortados da lateral, nunca entrando em vista; (2) na dobra, o número
+ *  aparecia na tela zerado porque ainda faltavam 60px para entrar na faixa. */
+export const VIEW_MARGIN = '0px'
 
 export const pct = (v: number, total: number) => Math.round((v / total) * 100)
 
@@ -48,6 +49,19 @@ function highlightProps(canHover: boolean, label: string, set: (v: string | null
     onFocus: () => set(label),
     onBlur: () => set(null),
   }
+}
+
+/** Largura renderizada de um elemento, acompanhando redimensionamentos. */
+function useLarguraReal(ref: React.RefObject<HTMLElement | null>) {
+  const [w, setW] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => setW(e.contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ref])
+  return w
 }
 
 /** Gatilho de entrada na tela. Precisa ser ancorado num elemento de tamanho real:
@@ -396,6 +410,15 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const inView = useInView(wrapRef, { once: true, margin: VIEW_MARGIN })
 
+  /** O SVG tem viewBox fixo, então tudo dentro dele encolhe junto com o container.
+   *  `k` desfaz esse encolhimento no texto e nos pontos, para que fiquem do mesmo
+   *  tamanho aparente no celular e no desktop. */
+  const larguraReal = useLarguraReal(wrapRef)
+  const k = larguraReal ? W / larguraReal : 1
+  const fonte = (px: number) => px * k
+  /** Com o texto em tamanho constante, cabem menos datas — mostramos 1 a cada `passo`. */
+  const passo = Math.max(1, Math.ceil((dados.length * 46) / (larguraReal || W)))
+
   const x = (i: number) => PAD.left + (i / (dados.length - 1)) * plotW
   const y = (v: number) => PAD.top + plotH - (v / max) * plotH
 
@@ -444,7 +467,13 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
                 strokeWidth="1"
                 shapeRendering="crispEdges"
               />
-              <text x={PAD.left - 8} y={y(t) + 4} textAnchor="end" fontSize="11" fill="var(--text-muted)">
+              <text
+                x={PAD.left - 8}
+                y={y(t) + fonte(4)}
+                textAnchor="end"
+                fontSize={fonte(11)}
+                fill="var(--text-muted)"
+              >
                 {t}
               </text>
             </g>
@@ -461,7 +490,7 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
             d={linha}
             fill="none"
             stroke="var(--series-1)"
-            strokeWidth="2"
+            strokeWidth={fonte(2)}
             strokeLinecap="round"
             strokeLinejoin="round"
             initial={{ pathLength: 0 }}
@@ -478,8 +507,22 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
                 animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
                 transition={{ delay: 1.2, duration: 0.5 }}
               >
-                <circle cx={x(i)} cy={y(dados[i].value)} r="4.5" fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth="2" />
-                <text x={x(i)} y={y(dados[i].value) - 12} textAnchor="middle" fontSize="12" fontWeight="600" fill="var(--text-primary)">
+                <circle
+                  cx={x(i)}
+                  cy={y(dados[i].value)}
+                  r={fonte(4.5)}
+                  fill="var(--series-1)"
+                  stroke="var(--surface-1)"
+                  strokeWidth={fonte(2)}
+                />
+                <text
+                  x={x(i)}
+                  y={y(dados[i].value) - fonte(12)}
+                  textAnchor="middle"
+                  fontSize={fonte(12)}
+                  fontWeight="600"
+                  fill="var(--text-primary)"
+                >
                   {dados[i].value}
                 </text>
               </motion.g>
@@ -496,7 +539,14 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
                 stroke="var(--axis)"
                 strokeWidth="1"
               />
-              <circle cx={x(active)} cy={y(dados[active].value)} r="5" fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth="2" />
+              <circle
+                cx={x(active)}
+                cy={y(dados[active].value)}
+                r={fonte(5)}
+                fill="var(--series-1)"
+                stroke="var(--surface-1)"
+                strokeWidth={fonte(2)}
+              />
             </g>
           )}
 
@@ -510,8 +560,15 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
             shapeRendering="crispEdges"
           />
           {dados.map((d, i) =>
-            i % 2 === 0 ? (
-              <text key={d.dia} x={x(i)} y={H - 8} textAnchor="middle" fontSize="11" fill="var(--text-muted)">
+            i % passo === 0 ? (
+              <text
+                key={d.dia}
+                x={x(i)}
+                y={H - 6}
+                textAnchor="middle"
+                fontSize={fonte(11)}
+                fill="var(--text-muted)"
+              >
                 {d.dia}
               </text>
             ) : null,

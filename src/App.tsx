@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion, useScroll, useSpring, useTransform } from 'motion/react'
+import { AnimatePresence, motion, useScroll, useSpring } from 'motion/react'
 import {
   HiArrowRight,
   HiArrowUpRight,
@@ -307,9 +307,9 @@ function Destaque({ children, nota }: { children: ReactNode; nota?: string }) {
 /* ----------------------------------------------------------------- hero */
 
 function Hero() {
-  const { scrollY } = useScroll()
-  const y = useTransform(scrollY, [0, 500], [0, 90])
-  const opacity = useTransform(scrollY, [0, 380], [1, 0])
+  // O hero não reage ao scroll de propósito: o fade/parallax apagava os três números
+  // do rodapé antes de dar tempo de lê-los — ainda mais no celular, onde o hero tem
+  // ~975px numa tela de ~850px. As animações daqui acontecem só na entrada.
 
   return (
     <section id="topo" className="relative overflow-hidden pt-36 pb-24 sm:pt-44 sm:pb-32">
@@ -329,7 +329,7 @@ function Hero() {
         transition={{ duration: 20, repeat: Infinity, ease: 'easeInOut' }}
       />
 
-      <motion.div className="relative mx-auto max-w-6xl px-5" style={{ y, opacity }}>
+      <div className="relative mx-auto max-w-6xl px-5">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -419,7 +419,7 @@ function Hero() {
             </div>
           ))}
         </motion.dl>
-      </motion.div>
+      </div>
     </section>
   )
 }
