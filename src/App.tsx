@@ -130,7 +130,8 @@ function MobileNav({ aberto, fechar }: { aberto: boolean; fechar: () => void }) 
       {aberto && (
         <motion.div
           key="painel"
-          className="fixed inset-0 z-[60] flex flex-col md:hidden"
+          /* z-10 < z-20 da barra: o painel cobre a página, mas nunca o botão X */
+          className="fixed inset-0 z-10 flex flex-col md:hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

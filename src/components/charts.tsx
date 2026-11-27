@@ -5,6 +5,12 @@ import type { Pergunta, Slice } from '../data'
 
 const nf = new Intl.NumberFormat('pt-BR')
 
+/** Margem do gatilho de scroll, no formato `top/bottom left/right`.
+ *  Os 0px laterais não são decoração: uma margem negativa encolhe o viewport nos
+ *  quatro lados, e no celular (padding de 20px) isso jogava todo elemento alinhado
+ *  à esquerda para fora da faixa — nada animava. */
+export const VIEW_MARGIN = '-60px 0px'
+
 export const pct = (v: number, total: number) => Math.round((v / total) * 100)
 
 const slotColor = (s?: 1 | 2 | 3) => `var(--series-${s ?? 1})`
@@ -49,7 +55,7 @@ function highlightProps(canHover: boolean, label: string, set: (v: string | null
  *  pode nunca marcá-lo como visível — foi assim que as barras ficaram zeradas. */
 export function useEntrou<T extends Element>() {
   const ref = useRef<T>(null)
-  const inView = useInView(ref, { once: true, margin: '-40px' })
+  const inView = useInView(ref, { once: true, margin: VIEW_MARGIN })
   return [ref, inView] as const
 }
 
@@ -82,7 +88,7 @@ export function GrowBar({
 /** Conta de 0 até `to` quando entra na tela. Respeita prefers-reduced-motion. */
 export function Counter({ to, duration = 1.4 }: { to: number; duration?: number }) {
   const ref = useRef<HTMLSpanElement>(null)
-  const inView = useInView(ref, { once: true, margin: '-60px' })
+  const inView = useInView(ref, { once: true, margin: VIEW_MARGIN })
   const reduce = useReducedMotion()
 
   useEffect(() => {
@@ -123,7 +129,7 @@ export function Reveal({
       className={className}
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: '-80px' }}
+      viewport={{ once: true, margin: VIEW_MARGIN }}
       transition={{ duration: 0.65, delay, ease: [0.16, 1, 0.3, 1] }}
     >
       {children}
@@ -388,7 +394,7 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
   const max = Math.ceil(Math.max(...dados.map((d) => d.value)) / 10) * 10
   const [active, setActive] = useState<number | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
-  const inView = useInView(wrapRef, { once: true, margin: '-40px' })
+  const inView = useInView(wrapRef, { once: true, margin: VIEW_MARGIN })
 
   const x = (i: number) => PAD.left + (i / (dados.length - 1)) * plotW
   const y = (v: number) => PAD.top + plotH - (v / max) * plotH
