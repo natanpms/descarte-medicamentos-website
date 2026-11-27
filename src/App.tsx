@@ -84,7 +84,7 @@ function MenuButton({ aberto, onClick }: { aberto: boolean; onClick: () => void 
       aria-label={aberto ? 'Fechar menu' : 'Abrir menu'}
       aria-expanded={aberto}
       className="relative grid size-10 place-items-center rounded-full border md:hidden"
-      style={{ borderColor: 'var(--border)', background: 'var(--surface-1)' }}
+      style={{ borderColor: 'var(--border)', color: 'var(--text-secondary)' }}
     >
       <AnimatePresence initial={false} mode="wait">
         <motion.span

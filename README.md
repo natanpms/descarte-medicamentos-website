@@ -72,6 +72,24 @@ Para revalidar depois de mudar alguma cor:
 node <skill>/scripts/validate_palette.js "#008300,#2a78d6,#eda100" --mode light --surface "#fbfcfb" --pairs all
 ```
 
+## Duas armadilhas das animações (não reintroduza)
+
+1. **Nunca use margem negativa no gatilho de scroll.** `VIEW_MARGIN` em
+   `src/components/charts.tsx` é `'0px'` de propósito. Uma margem como `'-60px'`
+   encolhe a faixa de disparo nos **quatro** lados, e no celular isso quebrava duas
+   coisas: um contador que começa em `"0"` tem ~16px de largura e cabia inteiro
+   dentro dos 60px cortados da lateral (nunca disparava, ficava zerado para sempre);
+   e, na dobra, o número aparecia na tela ainda em 0 porque faltavam 60px para
+   entrar na faixa. No desktop nada disso aparecia, porque o conteúdo é centralizado.
+2. **O gatilho tem que ficar num elemento com tamanho real.** Um elemento com
+   `scaleX: 0` ou `width: 0` tem caixa vazia e o IntersectionObserver pode nunca
+   marcá-lo como visível — por isso as barras usam `useEntrou()` ancorado no trilho
+   (ou no `<ul>`), e não `whileInView` na própria barra.
+
+No gráfico de área, o `viewBox` acompanha a largura real do container (1 unidade =
+1 pixel). Com `viewBox` fixo o SVG inteiro encolhia no celular e as datas do eixo
+ficavam ilegíveis.
+
 ## Acessibilidade
 
 Tema claro/escuro (segue o sistema, com botão que sobrepõe), `prefers-reduced-motion`

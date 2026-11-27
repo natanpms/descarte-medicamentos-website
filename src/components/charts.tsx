@@ -400,24 +400,23 @@ type Ponto = { dia: string; value: number }
 
 /** Área + linha com crosshair. O traçado é desenhado ao entrar na tela. */
 export function AreaChart({ dados }: { dados: Ponto[] }) {
-  const W = 760
-  const H = 240
-  const PAD = { top: 16, right: 16, bottom: 28, left: 34 }
-  const plotW = W - PAD.left - PAD.right
-  const plotH = H - PAD.top - PAD.bottom
-  const max = Math.ceil(Math.max(...dados.map((d) => d.value)) / 10) * 10
   const [active, setActive] = useState<number | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const inView = useInView(wrapRef, { once: true, margin: VIEW_MARGIN })
 
-  /** O SVG tem viewBox fixo, então tudo dentro dele encolhe junto com o container.
-   *  `k` desfaz esse encolhimento no texto e nos pontos, para que fiquem do mesmo
-   *  tamanho aparente no celular e no desktop. */
+  /** O viewBox acompanha a largura real do container, então 1 unidade = 1 pixel e
+   *  o texto do eixo sai do mesmo tamanho no celular e no desktop. Com viewBox fixo
+   *  o SVG inteiro encolhia junto e as datas ficavam ilegíveis no celular. */
   const larguraReal = useLarguraReal(wrapRef)
-  const k = larguraReal ? W / larguraReal : 1
-  const fonte = (px: number) => px * k
-  /** Com o texto em tamanho constante, cabem menos datas — mostramos 1 a cada `passo`. */
-  const passo = Math.max(1, Math.ceil((dados.length * 46) / (larguraReal || W)))
+  const W = Math.round(larguraReal) || 760
+  const estreito = W < 520
+  const H = estreito ? 260 : 240
+  const PAD = { top: 18, right: 14, bottom: 30, left: 34 }
+  const plotW = W - PAD.left - PAD.right
+  const plotH = H - PAD.top - PAD.bottom
+  const max = Math.ceil(Math.max(...dados.map((d) => d.value)) / 10) * 10
+  /** Datas de 11px ocupam ~46px com respiro; mostramos 1 a cada `passo` para não colidir. */
+  const passo = Math.max(1, Math.ceil((dados.length * 46) / plotW))
 
   const x = (i: number) => PAD.left + (i / (dados.length - 1)) * plotW
   const y = (v: number) => PAD.top + plotH - (v / max) * plotH
@@ -469,9 +468,9 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
               />
               <text
                 x={PAD.left - 8}
-                y={y(t) + fonte(4)}
+                y={y(t) + 4}
                 textAnchor="end"
-                fontSize={fonte(11)}
+                fontSize={11}
                 fill="var(--text-muted)"
               >
                 {t}
@@ -490,7 +489,7 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
             d={linha}
             fill="none"
             stroke="var(--series-1)"
-            strokeWidth={fonte(2)}
+            strokeWidth={2}
             strokeLinecap="round"
             strokeLinejoin="round"
             initial={{ pathLength: 0 }}
@@ -510,16 +509,16 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
                 <circle
                   cx={x(i)}
                   cy={y(dados[i].value)}
-                  r={fonte(4.5)}
+                  r={4.5}
                   fill="var(--series-1)"
                   stroke="var(--surface-1)"
-                  strokeWidth={fonte(2)}
+                  strokeWidth={2}
                 />
                 <text
                   x={x(i)}
-                  y={y(dados[i].value) - fonte(12)}
+                  y={y(dados[i].value) - 12}
                   textAnchor="middle"
-                  fontSize={fonte(12)}
+                  fontSize={12}
                   fontWeight="600"
                   fill="var(--text-primary)"
                 >
@@ -542,10 +541,10 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
               <circle
                 cx={x(active)}
                 cy={y(dados[active].value)}
-                r={fonte(5)}
+                r={5}
                 fill="var(--series-1)"
                 stroke="var(--surface-1)"
-                strokeWidth={fonte(2)}
+                strokeWidth={2}
               />
             </g>
           )}
@@ -564,9 +563,10 @@ export function AreaChart({ dados }: { dados: Ponto[] }) {
               <text
                 key={d.dia}
                 x={x(i)}
-                y={H - 6}
-                textAnchor="middle"
-                fontSize={fonte(11)}
+                y={H - 9}
+                // ancoragem nas pontas: a última data centrada estouraria a borda do SVG
+                textAnchor={i === dados.length - 1 ? 'end' : i === 0 ? 'start' : 'middle'}
+                fontSize={11}
                 fill="var(--text-muted)"
               >
                 {d.dia}
